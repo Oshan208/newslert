@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <title>News Alert</title>
+</head>
+<body>
+    <div id="loginForm">
+        <input type="text" id="usernameInput" placeholder="Enter your username" />
+        <button onclick="setUsername()">Login</button>
+    </div>
+
+    <div id="newsSection" style="display: none;">
+        <h1>News Alerts</h1>
+        <div id="notification-icon" onclick="toggleNotifications()">
+            🛎️ <span id="notification-count" class="badge">0</span>
+        </div>
+        <div id="notifications-menu" class="notifications-menu">
+            <ul id="notifications-list"></ul>
+        </div>
+        <div>
+            <textarea id="alertMessage" placeholder="Write a new alert..." oninput="checkInput()"></textarea>
+            <input type="text" id="imageUrl" placeholder="Image URL (optional)">
+            <button onclick="addAlert()">Post Alert</button>
+            <button id="startRecording" onclick="startRecording()">Start Recording</button>
+            <button id="stopRecording" onclick="stopRecording()" disabled>Stop Recording</button>
+            <audio id="audioPlayback" controls style="display: none;"></audio>
+            <p id="hotNewsMessage" style="display: none;">Expect Hot News!</p>
+        </div>
+        <h2>New Alerts</h2>
+        <ul id="newAlertsList"></ul>
+        <h2>Old Alerts</h2>
+        <ul id="oldAlertsList"></ul>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
