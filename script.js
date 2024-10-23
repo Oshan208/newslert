@@ -1,117 +1,128 @@
-<!-- Add Firebase SDKs -->
-<script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database.js"></script>
+// Import the necessary Firebase SDKs
+import { initializeApp } from "firebase/app";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
+import { getDatabase, ref, push, set, onValue } from "firebase/database";
 
-<script>
-// Firebase configuration
+// Your web app's Firebase configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyAGtd7tZyrr6FNMDdH6KGJMgQJ9qkyDWI0",
-    authDomain: "newwebapp-17077.firebaseapp.com",
-    databaseURL: "https://newwebapp-17077-default-rtdb.firebaseio.com",
-    projectId: "newwebapp-17077",
-    storageBucket: "newwebapp-17077.appspot.com",
-    messagingSenderId: "34654677405",
-    appId: "1:34654677405:web:dcfe8f03fe689cef1be774"
+  apiKey: "AIzaSyAGtd7tZyrr6FNMDdH6KGJMgQJ9qkyDWI0",
+  authDomain: "newwebapp-17077.firebaseapp.com",
+  databaseURL: "https://newwebapp-17077-default-rtdb.firebaseio.com",
+  projectId: "newwebapp-17077",
+  storageBucket: "newwebapp-17077.appspot.com",
+  messagingSenderId: "34654677405",
+  appId: "1:34654677405:web:dcfe8f03fe689cef1be774",
+  measurementId: "G-VHK511TH19"
 };
 
 // Initialize Firebase
-const app = firebase.initializeApp(firebaseConfig);
-const db = firebase.database(app);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
 
-// Function to post new alert
-function postAlert() {
-    const alertMessage = document.getElementById('alertMessage').value;
-    const username = "currentUser"; // Replace this with the logged-in user's username
+// Get references to UI elements
+const loginBtn = document.getElementById("loginBtn");
+const registerBtn = document.getElementById("registerBtn");
+const logoutBtn = document.getElementById("logoutBtn");
+const emailInput = document.getElementById("email");
+const passwordInput = document.getElementById("password");
+const userEmailSpan = document.getElementById("userEmail");
+const authSection = document.getElementById("authSection");
+const userSection = document.getElementById("userSection");
+const postAlertBtn = document.getElementById("postAlertBtn");
+const alertMessageInput = document.getElementById("alertMessage");
+const alertsContainer = document.getElementById("alertsContainer");
+
+// Register new users
+registerBtn.addEventListener("click", () => {
+  const email = emailInput.value;
+  const password = passwordInput.value;
+
+  createUserWithEmailAndPassword(auth, email, password)
+    .then((userCredential) => {
+      alert("Registration successful! You can now log in.");
+    })
+    .catch((error) => {
+      alert(error.message);
+    });
+});
+
+// Login existing users
+loginBtn.addEventListener("click", () => {
+  const email = emailInput.value;
+  const password = passwordInput.value;
+
+  signInWithEmailAndPassword(auth, email, password)
+    .then((userCredential) => {
+      alert("Login successful!");
+    })
+    .catch((error) => {
+      alert(error.message);
+    });
+});
+
+// Logout users
+logoutBtn.addEventListener("click", () => {
+  signOut(auth)
+    .then(() => {
+      alert("Logged out successfully!");
+      userSection.style.display = "none";
+      authSection.style.display = "block";
+    })
+    .catch((error) => {
+      alert(error.message);
+    });
+});
+
+// Post a new news alert
+postAlertBtn.addEventListener("click", () => {
+  const alertMessage = alertMessageInput.value;
+  const user = auth.currentUser;
+
+  if (user && alertMessage) {
     const timestamp = new Date().toLocaleString();
+    const alertRef = ref(db, 'alerts');
+    const newAlertRef = push(alertRef);
 
-    if (alertMessage) {
-        const newAlertKey = db.ref().child('alerts').push().key;
-        const newAlertData = {
-            id: newAlertKey,
-            message: alertMessage,
-            username: username,
-            timestamp: timestamp,
-            likes: 0,
-            dislikes: 0,
-            comments: []
-        };
-
-        // Push the new alert to Firebase database
-        db.ref('alerts/' + newAlertKey).set(newAlertData, (error) => {
-            if (error) {
-                console.error('Error posting alert:', error);
-            } else {
-                document.getElementById('alertMessage').value = ''; // Clear the input box
-            }
-        });
-    }
-}
-
-// Function to load alerts in real-time
-function loadAlerts() {
-    const alertsContainer = document.getElementById('alertsContainer');
-    alertsContainer.innerHTML = ''; // Clear the container first
-
-    db.ref('alerts').on('value', (snapshot) => {
-        const alerts = snapshot.val();
-        for (const alertKey in alerts) {
-            const alert = alerts[alertKey];
-
-            const alertDiv = document.createElement('div');
-            alertDiv.className = 'alert-item';
-            alertDiv.innerHTML = `
-                <p><strong>${alert.username}</strong> (${alert.timestamp})</p>
-                <p>${alert.message}</p>
-                <button onclick="reactToAlert('${alert.id}', 'like')">👍 ${alert.likes || 0}</button>
-                <button onclick="reactToAlert('${alert.id}', 'dislike')">👎 ${alert.dislikes || 0}</button>
-                <div>
-                    <input type="text" id="comment-input-${alert.id}" placeholder="Add a comment"/>
-                    <button onclick="addComment('${alert.id}')">Comment</button>
-                </div>
-                <div id="comments-${alert.id}">
-                    ${alert.comments.map(comment => `<p>${comment}</p>`).join('')}
-                </div>
-            `;
-            alertsContainer.appendChild(alertDiv);
-        }
+    set(newAlertRef, {
+      username: user.email,
+      message: alertMessage,
+      timestamp: timestamp
+    }).then(() => {
+      alertMessageInput.value = ''; // Clear the input
+    }).catch((error) => {
+      alert("Failed to post alert: " + error.message);
     });
-}
+  } else {
+    alert("Please log in and type a message.");
+  }
+});
 
-// Call this function to load alerts in real-time when the page loads
-window.onload = function() {
-    loadAlerts();
-}
-
-// Function to handle reactions to alerts (like/dislike)
-function reactToAlert(alertId, reactionType) {
-    const alertRef = db.ref('alerts/' + alertId);
-
-    alertRef.once('value').then(snapshot => {
-        const alert = snapshot.val();
-        if (reactionType === 'like') {
-            alert.likes = (alert.likes || 0) + 1;
-        } else if (reactionType === 'dislike') {
-            alert.dislikes = (alert.dislikes || 0) + 1;
-        }
-        alertRef.set(alert); // Update the alert in Firebase
+// Listen for real-time updates of alerts
+onValue(ref(db, 'alerts'), (snapshot) => {
+  alertsContainer.innerHTML = "<h2>News Alerts</h2>"; // Reset the container
+  const alerts = snapshot.val();
+  if (alerts) {
+    Object.keys(alerts).forEach((key) => {
+      const alert = alerts[key];
+      const alertDiv = document.createElement('div');
+      alertDiv.className = 'alert-item';
+      alertDiv.innerHTML = `<p><strong>${alert.username}</strong> (${alert.timestamp})</p><p>${alert.message}</p>`;
+      alertsContainer.appendChild(alertDiv);
     });
-}
+  }
+});
 
-// Function to add a comment to an alert
-function addComment(alertId) {
-    const commentInput = document.getElementById(`comment-input-${alertId}`);
-    const comment = commentInput.value.trim();
-
-    if (comment) {
-        const alertRef = db.ref('alerts/' + alertId);
-        alertRef.once('value').then(snapshot => {
-            const alert = snapshot.val();
-            alert.comments = alert.comments || [];
-            alert.comments.push(comment);
-
-            alertRef.set(alert); // Update the alert with new comment in Firebase
-            commentInput.value = ''; // Clear comment input box
-        });
-    }
-}
-</script>
+// Authentication state observer
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    // User is signed in
+    userEmailSpan.textContent = user.email;
+    userSection.style.display = "block";
+    authSection.style.display = "none";
+  } else {
+    // No user is signed in
+    userSection.style.display = "none";
+    authSection.style.display = "block";
+  }
+});
