@@ -1,128 +1,82 @@
-// Import the necessary Firebase SDKs
-import { initializeApp } from "firebase/app";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
-import { getDatabase, ref, push, set, onValue } from "firebase/database";
+// Import Firebase SDKs
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-storage.js";
 
-// Your web app's Firebase configuration
+// Firebase Configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyAGtd7tZyrr6FNMDdH6KGJMgQJ9qkyDWI0",
-  authDomain: "newwebapp-17077.firebaseapp.com",
-  databaseURL: "https://newwebapp-17077-default-rtdb.firebaseio.com",
-  projectId: "newwebapp-17077",
-  storageBucket: "newwebapp-17077.appspot.com",
-  messagingSenderId: "34654677405",
-  appId: "1:34654677405:web:dcfe8f03fe689cef1be774",
-  measurementId: "G-VHK511TH19"
+    apiKey: "AIzaSyAGtd7tZyrr6FNMDdH6KGJMgQJ9qkyDWI0",
+    authDomain: "newwebapp-17077.firebaseapp.com",
+    databaseURL: "https://newwebapp-17077-default-rtdb.firebaseio.com",
+    projectId: "newwebapp-17077",
+    storageBucket: "newwebapp-17077.appspot.com",
+    messagingSenderId: "34654677405",
+    appId: "1:34654677405:web:dcfe8f03fe689cef1be774",
+    measurementId: "G-VHK511TH19"
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
+const auth = getAuth();
+const storage = getStorage();
 
-// Get references to UI elements
-const loginBtn = document.getElementById("loginBtn");
-const registerBtn = document.getElementById("registerBtn");
-const logoutBtn = document.getElementById("logoutBtn");
-const emailInput = document.getElementById("email");
-const passwordInput = document.getElementById("password");
-const userEmailSpan = document.getElementById("userEmail");
-const authSection = document.getElementById("authSection");
-const userSection = document.getElementById("userSection");
-const postAlertBtn = document.getElementById("postAlertBtn");
-const alertMessageInput = document.getElementById("alertMessage");
-const alertsContainer = document.getElementById("alertsContainer");
+// Handle User Registration and Email Verification
+document.getElementById('registerForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
 
-// Register new users
-registerBtn.addEventListener("click", () => {
-  const email = emailInput.value;
-  const password = passwordInput.value;
-
-  createUserWithEmailAndPassword(auth, email, password)
-    .then((userCredential) => {
-      alert("Registration successful! You can now log in.");
-    })
-    .catch((error) => {
-      alert(error.message);
-    });
+    createUserWithEmailAndPassword(auth, email, password)
+        .then((userCredential) => {
+            userCredential.user.sendEmailVerification().then(() => {
+                document.getElementById('message').textContent = 'Verification email sent!';
+            });
+        })
+        .catch((error) => {
+            document.getElementById('message').textContent = error.message;
+        });
 });
 
-// Login existing users
-loginBtn.addEventListener("click", () => {
-  const email = emailInput.value;
-  const password = passwordInput.value;
+// Handle User Login and Email Verification Check
+document.getElementById('loginForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
 
-  signInWithEmailAndPassword(auth, email, password)
-    .then((userCredential) => {
-      alert("Login successful!");
-    })
-    .catch((error) => {
-      alert(error.message);
-    });
+    signInWithEmailAndPassword(auth, email, password)
+        .then((userCredential) => {
+            if (userCredential.user.emailVerified) {
+                document.getElementById('loginMessage').textContent = 'Login successful!';
+            } else {
+                document.getElementById('loginMessage').textContent = 'Please verify your email first!';
+            }
+        })
+        .catch((error) => {
+            document.getElementById('loginMessage').textContent = error.message;
+        });
 });
 
-// Logout users
-logoutBtn.addEventListener("click", () => {
-  signOut(auth)
-    .then(() => {
-      alert("Logged out successfully!");
-      userSection.style.display = "none";
-      authSection.style.display = "block";
-    })
-    .catch((error) => {
-      alert(error.message);
-    });
-});
+// Handle Profile Setup (Name and Profile Picture)
+document.getElementById('profileForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const user = auth.currentUser;
+    const displayName = document.getElementById('displayName').value;
+    const profilePicture = document.getElementById('profilePicture').files[0];
 
-// Post a new news alert
-postAlertBtn.addEventListener("click", () => {
-  const alertMessage = alertMessageInput.value;
-  const user = auth.currentUser;
-
-  if (user && alertMessage) {
-    const timestamp = new Date().toLocaleString();
-    const alertRef = ref(db, 'alerts');
-    const newAlertRef = push(alertRef);
-
-    set(newAlertRef, {
-      username: user.email,
-      message: alertMessage,
-      timestamp: timestamp
-    }).then(() => {
-      alertMessageInput.value = ''; // Clear the input
-    }).catch((error) => {
-      alert("Failed to post alert: " + error.message);
-    });
-  } else {
-    alert("Please log in and type a message.");
-  }
-});
-
-// Listen for real-time updates of alerts
-onValue(ref(db, 'alerts'), (snapshot) => {
-  alertsContainer.innerHTML = "<h2>News Alerts</h2>"; // Reset the container
-  const alerts = snapshot.val();
-  if (alerts) {
-    Object.keys(alerts).forEach((key) => {
-      const alert = alerts[key];
-      const alertDiv = document.createElement('div');
-      alertDiv.className = 'alert-item';
-      alertDiv.innerHTML = `<p><strong>${alert.username}</strong> (${alert.timestamp})</p><p>${alert.message}</p>`;
-      alertsContainer.appendChild(alertDiv);
-    });
-  }
-});
-
-// Authentication state observer
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    // User is signed in
-    userEmailSpan.textContent = user.email;
-    userSection.style.display = "block";
-    authSection.style.display = "none";
-  } else {
-    // No user is signed in
-    userSection.style.display = "none";
-    authSection.style.display = "block";
-  }
+    if (user) {
+        // Upload profile picture
+        const storageRef = ref(storage, `profilePictures/${user.uid}`);
+        uploadBytes(storageRef, profilePicture).then(() => {
+            getDownloadURL(storageRef).then((downloadURL) => {
+                user.updateProfile({
+                    displayName: displayName,
+                    photoURL: downloadURL
+                }).then(() => {
+                    document.getElementById('profileMessage').textContent = 'Profile updated successfully!';
+                }).catch((error) => {
+                    document.getElementById('profileMessage').textContent = error.message;
+                });
+            });
+        });
+    }
 });
